@@ -15,6 +15,19 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   late Future<Map<String, dynamic>> _fetchFuture;
   int _indiceActual = 0;
 
+  // Configuración de fechas para el curso (Fácilmente editable para pruebas)
+  final Map<String, DateTime> _mapeoFechas = {
+    'Día 3': DateTime(2026, 8, 3),
+    'Día 4': DateTime(2026, 8, 4),
+  };
+
+  // Variable para simular la fecha y hora actual (Para pruebas de funcionamiento)
+  // Cambiar a una fecha específica para probar el cambio de tonos y bordes
+  // Si es null, utiliza la fecha real del sistema.
+  final DateTime? _fechaManualDePrueba = null; 
+
+  DateTime get _ahora => _fechaManualDePrueba ?? DateTime.now();
+
   @override
   void initState() {
     super.initState();
@@ -45,7 +58,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1), width: 0.5)),
+          border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 0.5)),
         ),
         child: BottomNavigationBar(
           currentIndex: _indiceActual,
@@ -149,7 +162,13 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
             final diaRaw = e['Dia'] ?? e['Día'] ?? e['dia'] ?? '3';
             return 'Día $diaRaw';
           }).toSet().toList();
-          setDias.sort();
+          
+          // Ordenar los días basándose en el mapeo cronológico
+          setDias.sort((a, b) {
+            final fechaA = _mapeoFechas[a] ?? DateTime(2099);
+            final fechaB = _mapeoFechas[b] ?? DateTime(2099);
+            return fechaA.compareTo(fechaB);
+          });
 
           if (_diaSeleccionado == null && setDias.isNotEmpty) {
             _diaSeleccionado = setDias.first;
@@ -193,11 +212,11 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                     fillColor: Theme.of(context).cardColor,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -211,7 +230,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                     shape: WidgetStateProperty.all(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                     ),
                   ),
@@ -257,26 +276,26 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
                               color: esSeleccionado 
-                                  ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
                                   : Theme.of(context).cardColor,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: esSeleccionado 
                                     ? Theme.of(context).colorScheme.primary 
-                                    : Colors.white.withOpacity(0.05),
+                                    : Colors.white.withValues(alpha: 0.05),
                                 width: esSeleccionado ? 1.5 : 1,
                               ),
                             ),
                             child: Text(
-                              dia.toUpperCase(),
+                              _formatearFechaLarga(dia).toUpperCase(),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: esSeleccionado 
                                     ? Theme.of(context).colorScheme.primary 
                                     : Colors.grey.shade500,
                                 fontWeight: esSeleccionado ? FontWeight.w900 : FontWeight.w600,
-                                fontSize: 13,
-                                letterSpacing: 1.2,
+                                fontSize: 11, // Reducido un poco para que quepa el texto largo
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
@@ -339,12 +358,12 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              bloque['Dia'].toString().toUpperCase(),
+                              _formatearFechaLarga(bloque['Dia']).toUpperCase(),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w900,
                                 fontSize: 16,
-                                letterSpacing: 2.0,
+                                letterSpacing: 1.5,
                               ),
                             ),
                           ],
@@ -356,16 +375,21 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        border: Border.all(
+                          color: _determinarColorBorde(bloque),
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
+                            color: Colors.black.withValues(alpha: 0.2),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: InkWell(
+                      child: Opacity(
+                        opacity: _estaEnElPasado(bloque) ? 0.6 : 1.0,
+                        child: InkWell(
                         borderRadius: BorderRadius.circular(16),
                         onTap: () => _mostrarDetalles(context, bloque, mapeoAlumnos),
                         child: Padding(
@@ -456,7 +480,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                         ),
                       ),
                     ),
-                  ],
+                  ),
+                ],
                 ),
               );
             },
@@ -515,7 +540,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFF1E1E1E),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
           ),
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
           child: Column(
@@ -527,7 +552,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                   width: 48,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white12,
+                    color: Colors.white12.withValues(alpha: 0.12), // Using withValues for consistency if applicable, but white12 is already a color
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -537,12 +562,12 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    bloque['Dia'],
+                    _formatearFechaLarga(bloque['Dia']),
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w900,
                       fontSize: 14,
-                      letterSpacing: 1.5,
+                      letterSpacing: 1.2,
                     ),
                   ),
                   Text(
@@ -563,16 +588,16 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.03),
+                    color: Colors.white.withValues(alpha: 0.03),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -614,7 +639,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
             ],
           ),
         );
@@ -682,5 +707,44 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     });
 
     return listaAgrupada;
+  }
+
+  // --- MÉTODOS AUXILIARES DE FECHAS Y ESTILOS ---
+
+  String _formatearFechaLarga(String diaKey) {
+    final fecha = _mapeoFechas[diaKey];
+    if (fecha == null) return diaKey;
+
+    final diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    final meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+    final diaSemana = diasSemana[fecha.weekday - 1];
+    final mes = meses[fecha.month - 1];
+
+    return '$diaSemana ${fecha.day} de $mes';
+  }
+
+  bool _estaEnElPasado(Map<String, dynamic> bloque) {
+    final DateTime? fechaBase = _mapeoFechas[bloque['Dia']];
+    if (fechaBase == null) return false;
+
+    try {
+      final horaFinStr = (bloque['Fin'] as String).trim();
+      final partes = horaFinStr.split(':');
+      final hora = int.parse(partes[0]);
+      final minuto = int.parse(partes[1]);
+      
+      final fechaFin = DateTime(fechaBase.year, fechaBase.month, fechaBase.day, hora, minuto);
+      return _ahora.isAfter(fechaFin);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Color _determinarColorBorde(Map<String, dynamic> bloque) {
+    if (_estaEnElPasado(bloque)) {
+      return Colors.red.withValues(alpha: 0.5);
+    }
+    return Colors.green.withValues(alpha: 0.5);
   }
 }
