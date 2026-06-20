@@ -375,9 +375,11 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: _determinarColorBorde(bloque),
-                          width: 1.5,
+                        border: Border(
+                          left: BorderSide(
+                            color: _determinarColorBorde(bloque),
+                            width: 5,
+                          ),
                         ),
                         boxShadow: [
                           BoxShadow(
