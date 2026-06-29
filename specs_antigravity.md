@@ -4,6 +4,7 @@ Estructura tu proyecto antes de escribir una línea de código o prompt
 SECCIÓN 1 — Visión del producto
 
 Una aplicación móvil minimalista para que los profesores y alumnos del curso de violonchelo consulten su cronograma de actividades diarias en tiempo real, consolidando los datos dispersos de una hoja de cálculo en una línea de tiempo limpia y organizada.
+
 SECCIÓN 2 — Usuarios y casos de uso
 
     Usuario Alumno / Profesor (Es el mismo rol de consulta):
@@ -15,6 +16,12 @@ SECCIÓN 2 — Usuarios y casos de uso
         Revisa los detalles específicos (aula, profesor asignado) de cualquier bloque con un solo toque.
 
 SECCIÓN 3 — Funcionalidades
+
+    Módulo de Filtros:
+
+        El usuario puede abrir un menú desplegable (Dropdown) para seleccionar su nombre de una lista y filtrar el cronograma.
+
+        El sistema permite limpiar el filtro seleccionado para volver a mostrar la agenda completa de todos los participantes.
 
     Módulo de Cronograma (Calendario):
 
@@ -33,6 +40,14 @@ SECCIÓN 3 — Funcionalidades
         El usuario puede presionar cualquier tarjeta horaria para desplegar un panel inferior con el desglose de alumnos, profesores y aulas asignadas a ese bloque.
 
 SECCIÓN 4 — Flujos de usuario
+
+    Flujo 0: Filtrar la agenda por usuario
+
+        El usuario abre la aplicación.
+
+        El usuario selecciona su nombre del menú desplegable.
+
+        El sistema filtra el cronograma y muestra solo las actividades del usuario seleccionado.
 
     Flujo 1: Consultar la agenda diaria (Happy Path)
 

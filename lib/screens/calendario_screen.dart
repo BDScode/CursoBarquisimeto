@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/actividad_services.dart';
 
 class CalendarioScreen extends StatefulWidget {
@@ -49,12 +50,72 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
         centerTitle: true,
         surfaceTintColor: Colors.transparent,
       ),
-      body: IndexedStack(
-        index: _indiceActual,
-        children: [
-          _buildPaginaCalendario(),
-          _buildPaginaInformacion(),
-        ],
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _fetchFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Sincronizando cronograma...',
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 14,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final data = snapshot.data ?? {};
+          final masterAlumnos = (data['Alumnos_App'] ?? data['Master_Alumnos']) as List<dynamic>? ?? [];
+          final calendarioCurso = (data['Calendario_App'] ?? data['Calendario_Curso']) as List<dynamic>? ?? [];
+          final infoApp = data['Info_App'] as List<dynamic>? ?? [];
+
+          // Crear mapa de búsqueda para nombres de alumnos
+          final Map<String, String> mapeoAlumnos = {
+            for (var a in masterAlumnos)
+              a['ID'].toString().trim(): (
+                "${a['Nombre']?.toString().trim() ?? ''} ${a['Apellido']?.toString().trim() ?? ''}"
+              ).trim()
+          };
+
+          if (snapshot.hasError || (calendarioCurso.isEmpty && masterAlumnos.isEmpty)) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.cloud_off, size: 48, color: Colors.grey.shade700),
+                  const SizedBox(height: 16),
+                  const Text('No se pudo cargar el cronograma'),
+                  TextButton(
+                    onPressed: () => setState(() {
+                      _fetchFuture = _actividadService.obtenerActividades();
+                    }),
+                    child: const Text('Reintentar'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return IndexedStack(
+            index: _indiceActual,
+            children: [
+              _buildPaginaCalendario(masterAlumnos, calendarioCurso, mapeoAlumnos),
+              _buildPaginaInformacion(infoApp),
+            ],
+          );
+        },
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -84,63 +145,11 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     );
   }
 
-  Widget _buildPaginaCalendario() {
-    return FutureBuilder<Map<String, dynamic>>(
-        future: _fetchFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Sincronizando cronograma...',
-                    style: TextStyle(
-                      color: Colors.grey.shade500,
-                      fontSize: 14,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final data = snapshot.data ?? {};
-          final masterAlumnos = data['Master_Alumnos'] as List<dynamic>? ?? [];
-          final calendarioCurso = data['Calendario_Curso'] as List<dynamic>? ?? [];
-
-          // Crear mapa de búsqueda para nombres de alumnos
-          final Map<String, String> mapeoAlumnos = {
-            for (var a in masterAlumnos)
-              a['ID'].toString().trim(): (
-                "${a['Nombre']?.toString().trim() ?? ''} ${a['Apellido']?.toString().trim() ?? ''}"
-              ).trim()
-          };
-
-          if (snapshot.hasError || (calendarioCurso.isEmpty && masterAlumnos.isEmpty)) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.cloud_off, size: 48, color: Colors.grey.shade700),
-                  const SizedBox(height: 16),
-                  const Text('No se pudo cargar el cronograma'),
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _fetchFuture = _actividadService.obtenerActividades();
-                    }),
-                    child: const Text('Reintentar'),
-                  ),
-                ],
-              ),
-            );
-          }
+  Widget _buildPaginaCalendario(
+    List<dynamic> masterAlumnos,
+    List<dynamic> calendarioCurso,
+    Map<String, String> mapeoAlumnos,
+  ) {
 
           // Filtrar alumnos para el dropdown (excluyendo ALU-TODOS)
           final listaDropdown = masterAlumnos.where((a) {
@@ -491,36 +500,240 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
               ),
             ],
           );
-        },
-      );
   }
 
-  Widget _buildPaginaInformacion() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.info_outline, size: 64, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 24),
-            Text(
-              'Información del Curso',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
+  Widget _buildPaginaInformacion(List<dynamic> infoApp) {
+    if (infoApp.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.info_outline, size: 64, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 24),
+              Text(
+                'Información del Curso',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'No hay información adicional disponible en el servidor en este momento.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Filtrar reglamento
+    final reglamentos = infoApp.where((item) {
+      final idFaq = (item['id_faq'] ?? item['ID'] ?? '').toString().trim();
+      final titulo = (item['Título'] ?? item['Titulo'] ?? '').toString().toLowerCase().trim();
+      return idFaq == 'REG-01' || titulo == 'reglamento';
+    }).toList();
+    final reglamentoItem = reglamentos.isNotEmpty ? reglamentos.first : null;
+
+    // Filtrar FAQs
+    final faqs = infoApp.where((item) {
+      final idFaq = (item['id_faq'] ?? item['ID'] ?? '').toString().trim();
+      final titulo = (item['Título'] ?? item['Titulo'] ?? '').toString().toLowerCase().trim();
+      final contenido = (item['respuesta'] ??
+                         item['Respuesta'] ??
+                         item['Contenido'] ?? 
+                         item['Descripción'] ?? 
+                         item['descripcion'] ?? 
+                         item['Descripcion'] ?? 
+                         item['Texto'] ?? 
+                         '').toString().trim();
+
+      // Excluir reglamento
+      if (idFaq == 'REG-01' || titulo == 'reglamento') return false;
+      return titulo.isNotEmpty || contenido.isNotEmpty;
+    }).toList();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (reglamentoItem != null) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  initiallyExpanded: true,
+                  collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  collapsedIconColor: Colors.grey.shade600,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.gavel_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    (reglamentoItem['Título'] ?? reglamentoItem['Titulo'] ?? 'Reglamento')
+                        .toString()
+                        .toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: MarkdownBody(
+                          data: (reglamentoItem['respuesta'] ??
+                                 reglamentoItem['Respuesta'] ??
+                                 reglamentoItem['Contenido'] ??
+                                 '').toString(),
+                          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                            p: TextStyle(color: Colors.grey.shade300, height: 1.5, fontSize: 14),
+                            listBullet: TextStyle(color: Theme.of(context).colorScheme.primary),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Esta sección contendrá información relevante sobre el curso de violonchelo, '
-              'reglamentos y avisos importantes para todos los participantes.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.white70),
-            ),
+            const Divider(height: 32, thickness: 1, color: Colors.white10),
           ],
-        ),
+          if (faqs.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.help_outline_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'PREGUNTAS FRECUENTES',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ...faqs.map((faq) {
+              final titulo = (faq['Título'] ?? faq['Titulo'] ?? 'Pregunta').toString();
+              final contenido = (faq['respuesta'] ??
+                                 faq['Respuesta'] ??
+                                 faq['Contenido'] ??
+                                 faq['Descripción'] ??
+                                 faq['descripcion'] ??
+                                 faq['Descripcion'] ??
+                                 faq['Texto'] ??
+                                 '').toString();
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    iconColor: Theme.of(context).colorScheme.primary,
+                    collapsedIconColor: Colors.grey.shade600,
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.help_outline_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      titulo,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            contenido,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade300,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
       ),
     );
   }
